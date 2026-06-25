@@ -1,12 +1,59 @@
 from datetime import datetime
+from pathlib import Path
+import csv
 
 
 class PaperTrader:
-    def __init__(self, starting_balance=1000):
+    def __init__(self, starting_balance=1000, trade_log_path="data/trades.csv"):
         self.balance = starting_balance
         self.open_trades = []
         self.closed_trades = []
         self.max_risk_per_trade_pct = 1.0
+        self.trade_log_path = Path(trade_log_path)
+        self._ensure_trade_log_exists()
+
+    def _ensure_trade_log_exists(self):
+        """
+        Creates data/trades.csv with headers if it does not exist.
+        """
+        self.trade_log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if not self.trade_log_path.exists():
+            with open(self.trade_log_path, mode="w", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow([
+                    "symbol",
+                    "side",
+                    "entry_price",
+                    "exit_price",
+                    "quantity",
+                    "stop_loss",
+                    "take_profit",
+                    "pnl",
+                    "close_reason",
+                    "opened_at",
+                    "closed_at"
+                ])
+
+    def _save_closed_trade(self, trade):
+        """
+        Appends a closed paper trade to data/trades.csv.
+        """
+        with open(self.trade_log_path, mode="a", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow([
+                trade["symbol"],
+                trade["side"],
+                trade["entry_price"],
+                trade["exit_price"],
+                trade["quantity"],
+                trade["stop_loss"],
+                trade["take_profit"],
+                trade["pnl"],
+                trade["close_reason"],
+                trade["opened_at"],
+                trade["closed_at"]
+            ])
 
     def has_open_trade(self, symbol):
         return any(
@@ -48,7 +95,8 @@ class PaperTrader:
             "opened_at": datetime.utcnow().isoformat(),
             "closed_at": None,
             "exit_price": None,
-            "pnl": None
+            "pnl": None,
+            "close_reason": None
         }
 
         self.open_trades.append(trade)
@@ -91,6 +139,7 @@ class PaperTrader:
 
                 self.balance += pnl
                 self.closed_trades.append(trade)
+                self._save_closed_trade(trade)
 
         self.open_trades = [
             trade for trade in self.open_trades
